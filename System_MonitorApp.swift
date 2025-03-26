@@ -333,8 +333,6 @@ struct HeaderGroup<Content: View>: View {
 }
 
 
-// MARK: - ContentView
-
 struct ContentView: View {
     @ObservedObject var monitor = SystemMonitor()
 
@@ -355,106 +353,90 @@ struct ContentView: View {
 
     var body: some View {
          GeometryReader { geometry in
-              ScrollView([.vertical, .horizontal], showsIndicators: true) {
-                   VStack(alignment: .leading, spacing: 5) {
-                        Spacer().frame(height: 25) // Top spacer increased to 25
+              ScrollView {
+                   VStack(alignment: .leading, spacing: 16) {
                         
                         // Top row for Overall CPU Usage, Memory, and Disk.
-                        HStack(alignment: .top, spacing: 8) {
+                        HStack(alignment: .top, spacing: 16) {
                              HeaderGroup(header: "Overall CPU Usage") {
-                                  VStack(alignment: .leading, spacing: 4) {
+                                  VStack(alignment: .leading, spacing: 8) {
                                        Text(String(format: "Usage: %.2f%%", monitor.cpuUsage))
                                             .font(Font.system(.caption, design: .monospaced))
-                                            .padding(.leading, 8)
                                        BarGraph(samples: monitor.cpuHistory.map { $0.value },
                                                 fixedMax: 100,
                                                 color: .green)
-                                            .frame(width: 340, height: 140)
+                                            .frame(height: 120)
                                   }
+                                  .padding(8)
                              }
-                             .frame(width: 340, height: 150)  // Reduced fixed height from 160 to 150
+                             .frame(maxWidth: .infinity)
                              
                              HeaderGroup(header: "Memory") {
-                                  VStack(alignment: .leading, spacing: 4) {
-                                      Text("Used: \(SystemMonitor.humanReadableBytes(monitor.memoryUsed))  Free: \(SystemMonitor.humanReadableBytes(monitor.memoryFree))  Total: \(SystemMonitor.humanReadableBytes(monitor.memoryTotal))")
+                                  VStack(alignment: .leading, spacing: 8) {
+                                      Text("Used: \(SystemMonitor.humanReadableBytes(monitor.memoryUsed))")
                                             .font(Font.system(.caption, design: .monospaced))
-                                            .padding(.leading, 8)
-                                       BarGraph(samples: monitor.memoryHistory.map { $0.value },
+                                      BarGraph(samples: monitor.memoryHistory.map { $0.value },
                                                 fixedMax: 100,
                                                 color: .orange)
-                                            .frame(width: 340, height: 140)
+                                            .frame(height: 120)
                                   }
+                                  .padding(8)
                              }
-                             .frame(width: 340, height: 150)
+                             .frame(maxWidth: .infinity)
                              
                              HeaderGroup(header: "Disk") {
-                                  VStack(alignment: .leading, spacing: 4) {
-                                      Text("Used: \(SystemMonitor.humanReadableBytes(monitor.diskUsed))  Free: \(SystemMonitor.humanReadableBytes(monitor.diskFree))  Total: \(SystemMonitor.humanReadableBytes(monitor.diskTotal))")
+                                  VStack(alignment: .leading, spacing: 8) {
+                                      Text("Used: \(SystemMonitor.humanReadableBytes(monitor.diskUsed))")
                                             .font(Font.system(.caption, design: .monospaced))
-                                            .padding(.leading, 8)
-                                       BarGraph(samples: monitor.diskHistory.map { $0.value },
+                                      BarGraph(samples: monitor.diskHistory.map { $0.value },
                                                 fixedMax: 100,
                                                 color: .pink)
-                                            .frame(width: 340, height: 140)
+                                            .frame(height: 120)
                                   }
+                                  .padding(8)
                              }
-                             .frame(width: 340, height: 150)
+                             .frame(maxWidth: .infinity)
                         }
-                        .padding(.trailing, 8)
                         
-                        Spacer().frame(height: 20) // Spacer between top row and CPU Per Core section increased to 20
-                        
-                        // CPU Per Core Section with fixed size, wider graphs.
+                        // CPU Per Core Section
                         HeaderGroup(header: "CPU Per Core") {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 4) {
-                                    ForEach(monitor.cpuCoreHistory.indices, id: \.self) { i in
-                                        VStack(alignment: .center, spacing: 4) {
-                                            Text("\(i) - \(monitor.cpuCoreHistory[i].last?.value ?? 0, specifier: "%.2f")%")
-                                                .font(Font.system(size: 12, design: .monospaced))
-                                                .lineLimit(1)
-                                                .frame(maxWidth: .infinity, alignment: .center)
-                                            BarGraph(samples: monitor.cpuCoreHistory[i].map { $0.value },
-                                                     fixedMax: 100,
-                                                     color: .purple)
-                                                .frame(width: 120, height: 120)
+                             ScrollView(.horizontal, showsIndicators: false) {
+                                  HStack(spacing: 12) {
+                                        ForEach(monitor.cpuCoreHistory.indices, id: \.self) { i in
+                                             VStack(alignment: .center, spacing: 4) {
+                                                  Text("\(i) - \(monitor.cpuCoreHistory[i].last?.value ?? 0, specifier: "%.2f")%")
+                                                      .font(Font.system(size: 12, design: .monospaced))
+                                                  BarGraph(samples: monitor.cpuCoreHistory[i].map { $0.value },
+                                                           fixedMax: 100,
+                                                           color: .purple)
+                                                      .frame(width: 100, height: 100)
+                                             }
+                                             .frame(width: 100)
                                         }
-                                        .frame(width: 120)
-                                        .padding(2)
-                                    }
-                                }
-                                .padding(.horizontal, 8)
-                            }
+                                  }
+                                  .padding(.horizontal, 8)
+                             }
                         }
-                        .frame(height: 180)  // CPU Per Core section height remains 180
-                        
-                        Spacer().frame(height: 30) // Spacer between CPU Per Core and Network Traffic increased to 30
                         
                         // Network Traffic Section.
                         HeaderGroup(header: "Network Traffic") {
-                             VStack(alignment: .leading, spacing: 6) {
+                             VStack(alignment: .leading, spacing: 8) {
                                   Text("Download: \(SystemMonitor.humanReadableBytes(monitor.networkStats.reduce(0) { $0 + $1.rxBps }))/s")
                                        .font(.caption)
-                                       .padding(.leading, 8)
                                   let aggregatedRx = aggregateNetworkHistory(for: \.rxBps, from: monitor.networkHistory)
                                   BarGraph(samples: aggregatedRx, fixedMax: nil, color: .blue)
-                                       .frame(width: geometry.size.width - 100, height: 80)
-                                       .padding(.top, 10)
+                                       .frame(height: 80)
                                   Text("Upload: \(SystemMonitor.humanReadableBytes(monitor.networkStats.reduce(0) { $0 + $1.txBps }))/s")
                                        .font(.caption)
-                                       .padding(.leading, 8)
                                   let aggregatedTx = aggregateNetworkHistory(for: \.txBps, from: monitor.networkHistory)
                                   BarGraph(samples: aggregatedTx, fixedMax: nil, color: .blue)
-                                       .frame(width: geometry.size.width - 100, height: 80)
-                                       .padding(.top, 10)
+                                       .frame(height: 80)
                              }
+                             .padding(8)
                         }
-                        .frame(height: 185)
-                        
-                        Spacer().frame(height: 15) // Final bottom spacer increased to 15
                    }
-                   .padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 8))
-                   .frame(minHeight: geometry.size.height, alignment: .top)
+                   .padding()
+                   .frame(minWidth: geometry.size.width)
               }
          }
          .onAppear {
@@ -465,6 +447,7 @@ struct ContentView: View {
          }
     }
 }
+
 
 
 @main
