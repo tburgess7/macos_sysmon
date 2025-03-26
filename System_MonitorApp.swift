@@ -333,128 +333,131 @@ struct HeaderGroup<Content: View>: View {
 }
 
 
+// MARK: - ContentView
+
 struct ContentView: View {
     @ObservedObject var monitor = SystemMonitor()
-
+    
     private func aggregateNetworkHistory(for keyPath: KeyPath<NetworkStat, UInt64>, from history: [String: [NetworkStat]]) -> [Double] {
-         let count = history.values.map { $0.count }.max() ?? 0
-         var aggregated: [Double] = []
-         for i in 0..<count {
-              var sum: UInt64 = 0
-              for (_, samples) in history {
-                   if i < samples.count {
-                        sum += samples[i][keyPath: keyPath]
-                   }
-              }
-              aggregated.append(Double(sum))
-         }
-         return aggregated
+        let count = history.values.map { $0.count }.max() ?? 0
+        var aggregated: [Double] = []
+        for i in 0..<count {
+            var sum: UInt64 = 0
+            for (_, samples) in history {
+                if i < samples.count {
+                    sum += samples[i][keyPath: keyPath]
+                }
+            }
+            aggregated.append(Double(sum))
+        }
+        return aggregated
     }
-
+    
     var body: some View {
-         GeometryReader { geometry in
-              ScrollView {
-                   VStack(alignment: .leading, spacing: 16) {
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    
+                    // Top row for Overall CPU Usage, Memory, and Disk.
+                    HStack(alignment: .top, spacing: 16) {
+                        HeaderGroup(header: "Overall CPU Usage") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(String(format: "Usage: %.2f%%", monitor.cpuUsage))
+                                    .font(Font.system(.caption, design: .monospaced))
+                                BarGraph(samples: monitor.cpuHistory.map { $0.value },
+                                         fixedMax: 100,
+                                         color: .green)
+                                .frame(height: 120)
+                            }
+                            .padding(8)
+                        }
+                        .frame(maxWidth: .infinity)
                         
-                        // Top row for Overall CPU Usage, Memory, and Disk.
-                        HStack(alignment: .top, spacing: 16) {
-                             HeaderGroup(header: "Overall CPU Usage") {
-                                  VStack(alignment: .leading, spacing: 8) {
-                                       Text(String(format: "Usage: %.2f%%", monitor.cpuUsage))
-                                            .font(Font.system(.caption, design: .monospaced))
-                                       BarGraph(samples: monitor.cpuHistory.map { $0.value },
-                                                fixedMax: 100,
-                                                color: .green)
-                                            .frame(height: 120)
-                                  }
-                                  .padding(8)
-                             }
-                             .frame(maxWidth: .infinity)
-                             
-                             HeaderGroup(header: "Memory") {
-                                  VStack(alignment: .leading, spacing: 8) {
-                                      Text("Used: \(SystemMonitor.humanReadableBytes(monitor.memoryUsed))")
-                                            .font(Font.system(.caption, design: .monospaced))
-                                      BarGraph(samples: monitor.memoryHistory.map { $0.value },
-                                                fixedMax: 100,
-                                                color: .orange)
-                                            .frame(height: 120)
-                                  }
-                                  .padding(8)
-                             }
-                             .frame(maxWidth: .infinity)
-                             
-                             HeaderGroup(header: "Disk") {
-                                  VStack(alignment: .leading, spacing: 8) {
-                                      Text("Used: \(SystemMonitor.humanReadableBytes(monitor.diskUsed))")
-                                            .font(Font.system(.caption, design: .monospaced))
-                                      BarGraph(samples: monitor.diskHistory.map { $0.value },
-                                                fixedMax: 100,
-                                                color: .pink)
-                                            .frame(height: 120)
-                                  }
-                                  .padding(8)
-                             }
-                             .frame(maxWidth: .infinity)
+                        // Memory Section
+                        HeaderGroup(header: "Memory") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Used: \(SystemMonitor.humanReadableBytes(monitor.memoryUsed)) / Total: \(SystemMonitor.humanReadableBytes(monitor.memoryTotal))")
+                                    .font(Font.system(.caption, design: .monospaced))
+                                BarGraph(samples: monitor.memoryHistory.map { $0.value },
+                                         fixedMax: 100,
+                                         color: .orange)
+                                .frame(height: 120)
+                            }
+                            .padding(8)
                         }
                         
-                        // CPU Per Core Section
-                        HeaderGroup(header: "CPU Per Core") {
-                             ScrollView(.horizontal, showsIndicators: false) {
-                                  HStack(spacing: 12) {
-                                        ForEach(monitor.cpuCoreHistory.indices, id: \.self) { i in
-                                             VStack(alignment: .center, spacing: 4) {
-                                                  Text("\(i) - \(monitor.cpuCoreHistory[i].last?.value ?? 0, specifier: "%.2f")%")
-                                                      .font(Font.system(size: 12, design: .monospaced))
-                                                  BarGraph(samples: monitor.cpuCoreHistory[i].map { $0.value },
-                                                           fixedMax: 100,
-                                                           color: .purple)
-                                                      .frame(width: 100, height: 100)
-                                             }
-                                             .frame(width: 100)
-                                        }
-                                  }
-                                  .padding(.horizontal, 8)
-                             }
+                        // Disk Section
+                        HeaderGroup(header: "Disk") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Used: \(SystemMonitor.humanReadableBytes(monitor.diskUsed)) / Total: \(SystemMonitor.humanReadableBytes(monitor.diskTotal))")
+                                    .font(Font.system(.caption, design: .monospaced))
+                                BarGraph(samples: monitor.diskHistory.map { $0.value },
+                                         fixedMax: 100,
+                                         color: .pink)
+                                .frame(height: 120)
+                            }
+                            .padding(8)
                         }
-                        
-                        // Network Traffic Section.
-                        HeaderGroup(header: "Network Traffic") {
-                             VStack(alignment: .leading, spacing: 8) {
-                                  Text("Download: \(SystemMonitor.humanReadableBytes(monitor.networkStats.reduce(0) { $0 + $1.rxBps }))/s")
-                                       .font(.caption)
-                                  let aggregatedRx = aggregateNetworkHistory(for: \.rxBps, from: monitor.networkHistory)
-                                  BarGraph(samples: aggregatedRx, fixedMax: nil, color: .blue)
-                                       .frame(height: 80)
-                                  Text("Upload: \(SystemMonitor.humanReadableBytes(monitor.networkStats.reduce(0) { $0 + $1.txBps }))/s")
-                                       .font(.caption)
-                                  let aggregatedTx = aggregateNetworkHistory(for: \.txBps, from: monitor.networkHistory)
-                                  BarGraph(samples: aggregatedTx, fixedMax: nil, color: .blue)
-                                       .frame(height: 80)
-                             }
-                             .padding(8)
+                    }
+                    
+                    // CPU Per Core Section
+                    HeaderGroup(header: "CPU Per Core") {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(monitor.cpuCoreHistory.indices, id: \.self) { i in
+                                    VStack(alignment: .center, spacing: 4) {
+                                        Text("\(i) - \(monitor.cpuCoreHistory[i].last?.value ?? 0, specifier: "%.2f")%")
+                                            .font(Font.system(size: 12, design: .monospaced))
+                                        BarGraph(samples: monitor.cpuCoreHistory[i].map { $0.value },
+                                                 fixedMax: 100,
+                                                 color: .purple)
+                                        .frame(width: 100, height: 100)
+                                    }
+                                    .frame(width: 100)
+                                }
+                            }
+                            .padding(.horizontal, 8)
                         }
-                   }
-                   .padding()
-                   .frame(minWidth: geometry.size.width)
-              }
-         }
-         .onAppear {
-              monitor.startMonitoring()
-         }
-         .onDisappear {
-              monitor.stopMonitoring()
-         }
+                    }
+                    
+                    // Network Traffic Section.
+                    HeaderGroup(header: "Network Traffic") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Download: \(SystemMonitor.humanReadableBytes(monitor.networkStats.reduce(0) { $0 + $1.rxBps }))/s")
+                                .font(.caption)
+                            let aggregatedRx = aggregateNetworkHistory(for: \.rxBps, from: monitor.networkHistory)
+                            BarGraph(samples: aggregatedRx, fixedMax: nil, color: .blue)
+                                .frame(height: 80)
+                            Text("Upload: \(SystemMonitor.humanReadableBytes(monitor.networkStats.reduce(0) { $0 + $1.txBps }))/s")
+                                .font(.caption)
+                            let aggregatedTx = aggregateNetworkHistory(for: \.txBps, from: monitor.networkHistory)
+                            BarGraph(samples: aggregatedTx, fixedMax: nil, color: .blue)
+                                .frame(height: 80)
+                        }
+                        .padding(8)
+                    }
+                }
+                .padding()
+                .frame(minWidth: geometry.size.width)
+            }
+        }
+        .onAppear {
+            monitor.startMonitoring()
+        }
+        .onDisappear {
+            monitor.stopMonitoring()
+        }
     }
 }
 
 
+// MARK: - App Entry Point
 
 @main
 struct SystemMonitorApp: App {
     var body: some Scene {
-         WindowGroup {
-              ContentView()
-         }
+        WindowGroup {
+            ContentView()
+        }
     }
 }
